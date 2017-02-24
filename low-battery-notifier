@@ -1,0 +1,86 @@
+#!/usr/bin/env ruby
+#
+# LOW BATTERY NOTIFIER
+#
+# Lets you know when the battery on your macbook is running out of juice.
+#
+# Usage: low-battery-notifier [BATTERY_LEVEL_THRESHOLD]
+#
+# Example: low-battery-notifier 15 (notify when level is less than 15%)
+#          low-battery-notifier (default to 20%)
+#
+# For some reason, when the battery on Macbook Pros (Late 2013) starts to
+# seriusly deteriorate, lasting a couple of hours instead of eight, the built-in
+# low battery notification stops working ¯\_(ツ)_/¯. This exists to fix that.
+#
+# This program checks the battery charge level on Apple Macbooks and gives an
+# auditory alarm when the battery level falls below a given threshold (charge
+# precentage). Then it will notify again every minute until the laptop is
+# charging again or it runs out of power.
+#
+# It uses the command `pmset -g batt` to check the battery level and `say` to
+# tell you that the "Battery is running low".
+#
+# To make this run on automatically on startup:
+#
+# 1) create a LaunchAgent file:
+#
+# <?xml version="1.0" encoding="UTF-8"?>
+# <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+# "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+# <plist version="1.0">
+# <dict>
+#     <key>Label</key>
+#     <string>my.low-battery-notifier</string>
+#     <key>ProgramArguments</key>
+#     <array>
+#         <string>FULL_PATH_TO_PROGRAM</string>
+#         <string>BATTERY_LEVEL_THRESHOLD</string>
+#     </array>
+#     <key>KeepAlive</key>
+#     <true/>
+# </dict>
+# </plist>
+#
+# 2) save the file in the ~/LaunchAgents directory:
+#
+#     ~/LaunchAgents/my.low-battery-notifier.plist
+#
+# 3) load it so it runs on startup:
+#
+#     launchctl load ~/Library/LaunchAgents/my.low-battery-notifier.plist
+#
+# Enjoy!
+
+# battery level threshold 0 to 100
+def threshold
+  (ARGV.first || 20).to_i
+end
+
+def batery_state
+  `pmset -g batt`
+end
+
+def battery_level
+  batery_state[/\d+(?=%)/].to_i
+end
+
+def battery_discharging?
+  batery_state.match(/discharging/i)
+end
+
+def notify
+  message = "Battery is running low"
+  puts message
+  `say #{message}`
+end
+
+def run
+  puts "[#{__FILE__}] Running with threshold #{threshold}%"
+  loop do
+    notify if (battery_level < threshold) and battery_discharging?
+    sleep 60
+  end
+end
+
+run
